@@ -14,7 +14,7 @@
 - **Real-time ingestion** powered by [moonlink][moonlink-link] for streaming and batched INSERT/UPDATE/DELETE.
 - **Fast analytics** accelerated by [DuckDB][pgduckdb-link], ranking top 10 on [ClickBench][clickbench-link].
 - **Postgres-native** allowing you to query a columnstore table just like a regular Postgres table.
-- **Iceberg-native** making your data readily accesssible by other query engines.
+- **Iceberg-native** making your data readily accessible by other query engines.
 
 ## Installation
 
@@ -39,11 +39,11 @@ Then, clone the repository:
 git clone --recurse-submodules https://github.com/Mooncake-Labs/pg_mooncake.git
 ```
 
-To build and install for Postgres versions 14-17, run:
+To build and install for Postgres versions 14-18, run:
 ```bash
-cargo pgrx init --pg17=$(which pg_config)   # Replace with your Postgres version
+cargo pgrx init --pg18=$(which pg_config)   # Replace with your Postgres version
 make pg_duckdb                              # Skip if pg_duckdb is already installed
-make install PG_VERSION=pg17
+make install PG_VERSION=pg18
 ```
 
 Finally, add pg_mooncake to `shared_preload_libraries` in your `postgresql.conf` file and enable logical replication:

@@ -14,7 +14,7 @@ RUN apt update \
 
 USER vscode
 
-RUN cargo install --locked cargo-pgrx@0.16.0 \
+RUN cargo install --locked cargo-pgrx@0.16.1 \
  && cargo pgrx init
 
 RUN cd ~ \

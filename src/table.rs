@@ -38,7 +38,7 @@ static mut MOONCAKE_AM: pg_sys::TableAmRoutine = pg_sys::TableAmRoutine {
     finish_bulk_insert: Some(mooncake_finish_bulk_insert),
     #[cfg(any(feature = "pg14", feature = "pg15"))]
     relation_set_new_filenode: Some(mooncake_relation_set_new_filenode),
-    #[cfg(any(feature = "pg16", feature = "pg17"))]
+    #[cfg(any(feature = "pg16", feature = "pg17", feature = "pg18"))]
     relation_set_new_filelocator: Some(mooncake_relation_set_new_filelocator),
     relation_nontransactional_truncate: Some(mooncake_relation_nontransactional_truncate),
     relation_copy_data: Some(mooncake_relation_copy_data),
@@ -53,6 +53,7 @@ static mut MOONCAKE_AM: pg_sys::TableAmRoutine = pg_sys::TableAmRoutine {
     relation_toast_am: Some(mooncake_relation_toast_am),
     relation_fetch_toast_slice: Some(mooncake_relation_fetch_toast_slice),
     relation_estimate_size: Some(mooncake_relation_estimate_size),
+    #[cfg(any(feature = "pg14", feature = "pg15", feature = "pg16", feature = "pg17"))]
     scan_bitmap_next_block: Some(mooncake_scan_bitmap_next_block),
     scan_bitmap_next_tuple: Some(mooncake_scan_bitmap_next_tuple),
     scan_sample_next_block: Some(mooncake_scan_sample_next_block),
@@ -321,7 +322,7 @@ extern "C-unwind" fn mooncake_tuple_update(
 
 #[pg_guard]
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(feature = "pg16", feature = "pg17"))]
+#[cfg(any(feature = "pg16", feature = "pg17", feature = "pg18"))]
 extern "C-unwind" fn mooncake_tuple_update(
     _rel: pg_sys::Relation,
     _otid: pg_sys::ItemPointer,
@@ -370,7 +371,7 @@ extern "C-unwind" fn mooncake_relation_set_new_filenode(
 }
 
 #[pg_guard]
-#[cfg(any(feature = "pg16", feature = "pg17"))]
+#[cfg(any(feature = "pg16", feature = "pg17", feature = "pg18"))]
 extern "C-unwind" fn mooncake_relation_set_new_filelocator(
     _rel: pg_sys::Relation,
     _newrlocator: *const pg_sys::RelFileLocator,
@@ -393,7 +394,7 @@ extern "C-unwind" fn mooncake_relation_copy_data(
 }
 
 #[pg_guard]
-#[cfg(any(feature = "pg16", feature = "pg17"))]
+#[cfg(any(feature = "pg16", feature = "pg17", feature = "pg18"))]
 extern "C-unwind" fn mooncake_relation_copy_data(
     _rel: pg_sys::Relation,
     _newrlocator: *const pg_sys::RelFileLocator,
@@ -438,7 +439,7 @@ extern "C-unwind" fn mooncake_scan_analyze_next_block(
 }
 
 #[pg_guard]
-#[cfg(feature = "pg17")]
+#[cfg(any(feature = "pg17", feature = "pg18"))]
 extern "C-unwind" fn mooncake_scan_analyze_next_block(
     _scan: pg_sys::TableScanDesc,
     _stream: *mut pg_sys::ReadStream,
@@ -539,6 +540,7 @@ extern "C-unwind" fn mooncake_relation_estimate_size(
 }
 
 #[pg_guard]
+#[cfg(any(feature = "pg14", feature = "pg15", feature = "pg16", feature = "pg17"))]
 extern "C-unwind" fn mooncake_scan_bitmap_next_block(
     _scan: pg_sys::TableScanDesc,
     _tbmres: *mut pg_sys::TBMIterateResult,
@@ -547,10 +549,23 @@ extern "C-unwind" fn mooncake_scan_bitmap_next_block(
 }
 
 #[pg_guard]
+#[cfg(any(feature = "pg14", feature = "pg15", feature = "pg16", feature = "pg17"))]
 extern "C-unwind" fn mooncake_scan_bitmap_next_tuple(
     _scan: pg_sys::TableScanDesc,
     _tbmres: *mut pg_sys::TBMIterateResult,
     _slot: *mut pg_sys::TupleTableSlot,
+) -> bool {
+    unimplemented!("mooncake_scan_bitmap_next_tuple");
+}
+
+#[pg_guard]
+#[cfg(feature = "pg18")]
+extern "C-unwind" fn mooncake_scan_bitmap_next_tuple(
+    _scan: pg_sys::TableScanDesc,
+    _slot: *mut pg_sys::TupleTableSlot,
+    _recheck: *mut bool,
+    _lossy_pages: *mut pg_sys::uint64,
+    _exact_pages: *mut pg_sys::uint64,
 ) -> bool {
     unimplemented!("mooncake_scan_bitmap_next_tuple");
 }

@@ -3,7 +3,7 @@ cat >> ~/.psqlrc <<EOF
 \set PROMPT2 '  '
 EOF
 
-for version in 14 15 16 17; do
+for version in 14 15 16 17 18; do
 cat >> ~/.pgrx/data-${version}/postgresql.conf <<EOF
 duckdb.allow_community_extensions = true
 shared_preload_libraries = 'pg_duckdb,pg_mooncake'

@@ -1,4 +1,4 @@
-PG_VERSION ?= pg17
+PG_VERSION ?= pg18
 export PG_CONFIG := $(shell cargo pgrx info pg-config $(PG_VERSION))
 MAKEFLAGS += --no-print-directory
 
@@ -17,13 +17,13 @@ help:
 	@echo "  clean         Remove build artifacts"
 	@echo ""
 	@echo "Options:"
-	@echo "  PG_VERSION    pg14, pg15, pg16, or pg17 (default)"
+	@echo "  PG_VERSION    pg14, pg15, pg16, pg17, or pg18 (default)"
 
 clean:
 	@cargo clean
 
 duckdb_mooncake:
-	@$(MAKE) -C duckdb_mooncake GEN=ninja
+	@$(MAKE) -C duckdb_mooncake GEN=ninja OVERRIDE_GIT_DESCRIBE=v1.4.1
 
 format:
 	@cargo fmt
@@ -36,7 +36,7 @@ package:
 	@cargo pgrx package
 
 pg_duckdb:
-	@$(MAKE) -C pg_duckdb install -j$(nproc)
+	@$(MAKE) -C pg_duckdb install -j$(shell nproc)
 
 run: pg_duckdb
 	@cargo pgrx run
