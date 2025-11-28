@@ -273,6 +273,7 @@ CREATE OR REPLACE FUNCTION mooncake.create_secret(
 )
 RETURNS VOID
 LANGUAGE plpgsql
+SET search_path = pg_catalog, pg_temp
 AS $create_secret$
 DECLARE
     allowed_keys TEXT[] := ARRAY['ENDPOINT', 'REGION', 'SCOPE', 'USE_SSL'];
@@ -329,6 +330,7 @@ $create_secret$ SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION mooncake.drop_secret(secret_name TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
+SET search_path = pg_catalog, pg_temp
 AS $drop_secret$
 BEGIN
     DELETE FROM mooncake.secrets WHERE name = secret_name;
