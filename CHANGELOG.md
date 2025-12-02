@@ -1,3 +1,10 @@
+## 0.1.3 (2025-12-01)
+### Added
+- Retrieve correct cardinality for columnstore scan (#125)
+### Fixed
+- Disable local filesystem when allow_local_tables is off
+- Set search_path for create_secret and drop_secret (#180)
+
 ## 0.1.2 (2025-02-11)
 ### Added
 - Support NOT NULL constraint (#116)
