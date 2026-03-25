@@ -365,6 +365,10 @@ DuckDBManager::LoadExtensions(duckdb::ClientContext &context) {
 
 void
 DuckDBManager::RefreshConnectionState(duckdb::ClientContext &context) {
+	if (!mooncake_allow_local_tables) {
+		pgduckdb::DuckDBQueryOrThrow(context, "SET disabled_filesystems=LocalFileSystem");
+	}
+
 	// const auto extensions_table_last_seq = GetSeqLastValue("extensions_table_seq");
 	// if (IsExtensionsSeqLessThan(extensions_table_last_seq)) {
 	// 	LoadExtensions(context);
@@ -396,10 +400,6 @@ DuckDBManager::RefreshConnectionState(duckdb::ClientContext &context) {
 	// 	pgduckdb::DuckDBQueryOrThrow(context,
 	// 	                             "SET disabled_filesystems='" + std::string(duckdb_disabled_filesystems) + "'");
 	// }
-
-	if (!mooncake_allow_local_tables) {
-		pgduckdb::DuckDBQueryOrThrow(context, "SET disabled_filesystems=LocalFileSystem");
-	}
 }
 
 /*
