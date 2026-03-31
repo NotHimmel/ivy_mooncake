@@ -1,3 +1,5 @@
+#include <regex>
+
 #include "columnstore/columnstore.hpp"
 #include "columnstore/columnstore_metadata.hpp"
 #include "duckdb/main/secret/secret_manager.hpp"
@@ -49,8 +51,12 @@ void Columnstore::LoadSecrets(ClientContext &context) {
     if (require_new_transaction) {
         context.transaction.Commit();
     }
+    static const std::regex query_pattern("^CREATE SECRET [^;]*;$");
     auto queries = metadata.SecretsGetDuckdbQueries();
     for (const auto &query : queries) {
+        if (!std::regex_match(query, query_pattern)) {
+            throw InvalidInputException("duckdb_query should be a single CREATE SECRET statement");
+        }
         pgduckdb::DuckDBQueryOrThrow(context, query);
     }
 }
