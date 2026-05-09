@@ -1,9 +1,9 @@
-[submodule "duckdb_mooncake"]
-	path = duckdb_mooncake
-	url = https://github.com/Mooncake-Labs/duckdb_mooncake.git
-[submodule "moonlink"]
-	path = moonlink
-	url = https://github.com/Mooncake-Labs/moonlink.git
-[submodule "pg_duckdb"]
-	path = pg_duckdb
-	url = https://github.com/duckdb/pg_duckdb.git
+[submodule "ivy_moonlink"]
+	path = ivy_moonlink
+	url = https://github.com/IvorySQL/ivy_moonlink.git
+[submodule "ivy_duckdb"]
+	path = ivy_duckdb
+	url = https://github.com/IvorySQL/ivy_duckdb.git
+[submodule "ivy_duckdb_mooncake"]
+	path = ivy_duckdb_mooncake
+	url = https://github.com/IvorySQL/ivy_duckdb_mooncake.git
