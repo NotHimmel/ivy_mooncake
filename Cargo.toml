@@ -21,8 +21,8 @@ pg18 = ["pgrx/pg18"]
 
 [dependencies]
 bincode = "2"
-moonlink_rpc.path = "moonlink/src/moonlink_rpc"
-moonlink_service = { path = "moonlink/src/moonlink_service", optional = true }
+moonlink_rpc.path = "ivy_moonlink/src/moonlink_rpc"
+moonlink_service = { path = "ivy_moonlink/src/moonlink_service", optional = true }
 native-tls = "0.2"
 pgrx = "0.16.1"
 postgres.git = "https://github.com/Mooncake-Labs/rust-postgres.git"

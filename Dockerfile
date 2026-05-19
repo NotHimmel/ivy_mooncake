@@ -19,7 +19,7 @@ RUN cargo install --locked cargo-pgrx@0.16.1 \
 WORKDIR pg_mooncake
 
 COPY Cargo.toml Makefile pg_mooncake.control .
-COPY moonlink moonlink
+COPY ivy_moonlink ivy_moonlink
 COPY src src
 
 RUN make package
