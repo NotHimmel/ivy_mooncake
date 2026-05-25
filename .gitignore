@@ -3,3 +3,8 @@
 /tests/pg_regress/regression.diffs
 /tests/pg_regress/regression.out
 /tests/pg_regress/results/
+
+# Local-only: developer notes, machine-specific helpers, alt-base image
+docs/
+Dockerfile.ivorysql-base
+scripts/docker-relocate-data.sh

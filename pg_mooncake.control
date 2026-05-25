@@ -1,4 +1,4 @@
-comment = 'Real-time analytics on Postgres tables'
+comment = 'Real-time analytics on Postgres tables with IvorySQL Oracle-compat support'
 default_version = '@CARGO_VERSION@'
 module_pathname = 'pg_mooncake'
 relocatable = false

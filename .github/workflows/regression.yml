@@ -1,0 +1,143 @@
+name: regression
+
+# Run pgrx regression tests on every PR + manual dispatch.
+# Mirrors `make test` (which calls `cargo pgrx regress --resetdb`) inside
+# the project's Docker build stage so we exercise the real IvorySQL pg_config,
+# pg_duckdb install, and the bgworker codepath end-to-end.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IVORYSQL_BASE: registry.highgo.com/ivorysql/ivorysql:5.3-ubi8
+  TEST_IMAGE: ivy_mooncake:regress-${{ github.run_id }}
+
+jobs:
+  regress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build the `build` stage of the project Dockerfile. That stage ends
+      # with:
+      #   - /ivy_mooncake = source tree (incl. all 3 submodules)
+      #   - /etc/pgconfig = absolute path to IvorySQL pg_config
+      #   - pg_duckdb + libduckdb.so installed into IvorySQL libdir/sharedir
+      #   - rust 1.91.1 + cargo-pgrx 0.16.1 + `cargo pgrx init --pg18=$PG_CONFIG` done
+      # Stopping at this stage means we can run `cargo pgrx regress` from the
+      # same container without re-paying any build cost.
+      - name: Build (Dockerfile target=build)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: build
+          load: true
+          tags: ${{ env.TEST_IMAGE }}
+          build-args: |
+            IVORYSQL_BASE=${{ env.IVORYSQL_BASE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run cargo pgrx regress (pg18)
+        id: regress
+        run: |
+          mkdir -p _artifacts
+          set -o pipefail
+          docker run --rm \
+            -v "$PWD/_artifacts:/out" \
+            -w /ivy_mooncake \
+            -e RUST_BACKTRACE=1 \
+            -e CARGO_TERM_COLOR=always \
+            "${{ env.TEST_IMAGE }}" \
+            bash -c '
+              set -eux
+
+              # PG refuses to run as root, so spin up an unprivileged user
+              # (tester) and have it drive cargo pgrx regress.
+              useradd -m -u 2000 -s /bin/bash tester
+
+              # Share /root/.cargo and /root/.rustup with tester via chmod
+              # rather than cp -a / chown -R: on overlayfs chown forces a
+              # copy_up of every file (~1GB doubling), and a full chown of
+              # the build tree wastes minutes + GBs. chmod only flips
+              # metadata bits.
+              chmod o+rx /root
+              chmod -R o+rX /root/.cargo /root/.rustup
+
+              # target/ from the image build is root-owned + stale once
+              # cargo recompiles with different feature flags during regress,
+              # so wipe it instead of chown-recursing.
+              rm -rf /ivy_mooncake/target
+              chown -R tester:tester /ivy_mooncake
+
+              # /out is a host-mounted volume owned by the host user; tester
+              # would otherwise lack write perms.
+              chown tester:tester /out
+
+              PG_CONFIG="$(cat /etc/pgconfig)"
+              LIBDIR="$($PG_CONFIG --pkglibdir)"
+              SHAREDIR="$($PG_CONFIG --sharedir)"
+              chmod -R a+rwX "$LIBDIR" "$SHAREDIR/extension"
+
+              su - tester -c "
+                set -eux
+                # Share the root-owned cargo/rustup caches in place; per-user
+                # pgrx state still goes under tester home.
+                export CARGO_HOME=/root/.cargo
+                export RUSTUP_HOME=/root/.rustup
+                export PGRX_HOME=/home/tester/.pgrx
+                export PATH=/root/.cargo/bin:\$PATH
+
+                cargo pgrx init --pg18=\"$PG_CONFIG\"
+                cd /ivy_mooncake
+                # pg_duckdb refuses to load unless it is in
+                # shared_preload_libraries; the IvorySQL base also expects
+                # liboracle_parser/ivorysql_ora at preload time.
+                cargo pgrx regress --resetdb \
+                  --postgresql-conf \"shared_preload_libraries=liboracle_parser,ivorysql_ora,pg_duckdb,pg_mooncake\" \
+                  --postgresql-conf \"wal_level=logical\" \
+                  --postgresql-conf \"duckdb.allow_community_extensions=true\" \
+                  2>&1 | tee /out/regress.log
+              "
+            '
+
+      - name: Collect regression diffs on failure
+        if: failure() && steps.regress.outcome == 'failure'
+        run: |
+          docker run --rm \
+            -v "$PWD/_artifacts:/out" \
+            -w /ivy_mooncake \
+            "${{ env.TEST_IMAGE }}" \
+            bash -c '
+              set -eu
+              # Best-effort: regression diffs land somewhere under the source
+              # tree depending on pgrx version, so just grab everything that
+              # could be useful for triage.
+              find . -name regression.diffs -exec cp -v {} /out/ \; 2>/dev/null || true
+              find . -name regression.out   -exec cp -v {} /out/ \; 2>/dev/null || true
+              find . -path "*/pg_regress/results/*"  -exec cp -v {} /out/ \; 2>/dev/null || true
+              # cargo target log (if any)
+              find . -name "postmaster.log" -exec cp -v {} /out/ \; 2>/dev/null || true
+              ls -la /out/ || true
+            ' || true
+
+      - name: Upload regression artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-artifacts-${{ github.run_id }}
+          path: _artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
