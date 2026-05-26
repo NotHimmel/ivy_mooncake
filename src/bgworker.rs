@@ -6,6 +6,13 @@ use pgrx::prelude::*;
 use std::time::Duration;
 
 pub(crate) fn init() {
+    // pg_mooncake.enable_bgworker GUC toggle. When off, skip registration
+    // so the moonlink bgworker never starts. Mirror tables won't work, but
+    // pg_duckdb-only queries still do. Takes effect on PG restart (the GUC
+    // is Postmaster context — RegisterBackgroundWorker is only legal here).
+    if !crate::guc::ENABLE_BGWORKER.get() {
+        return;
+    }
     BackgroundWorkerBuilder::new("moonlink")
         .set_library("pg_mooncake")
         .set_function("moonlink_main")
