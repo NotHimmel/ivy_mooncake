@@ -197,6 +197,66 @@ ENV MOONCAKE_WAREHOUSE=/var/lib/ivorysql/mooncake
 RUN mkdir -p "${MOONCAKE_WAREHOUSE}" /tmp/moonlink_temp_file \
  && chmod 0777 "${MOONCAKE_WAREHOUSE}" /tmp/moonlink_temp_file
 
+# ---------- env -> postgresql.conf shim ----------
+# Translate IVY_* environment variables into PG GUC settings at container
+# start time. Lets users toggle pg_mooncake.* GUCs (and any future setting
+# we expose) via plain `-e KEY=VAL` without rebuilding the image or editing
+# postgresql.conf on a bind mount.
+#
+# Two trigger points:
+#   1. ivy-entrypoint-shim.sh runs on every container start before exec'ing
+#      the base entrypoint. It applies env -> conf if postgresql.conf exists
+#      (i.e. PGDATA already initialized).
+#   2. /docker-entrypoint-initdb.d/00-ivy-apply-env.sh runs after the base
+#      entrypoint's initdb on first start (when postgresql.conf is freshly
+#      created). It calls the same logic so the first start also honors
+#      env vars.
+RUN set -eux; \
+    cat > /usr/local/bin/ivy-apply-env.sh <<'APPLY'
+#!/usr/bin/env bash
+# Idempotently apply IVY_* env vars to $PGDATA/postgresql.conf.
+# Safe to call repeatedly; replaces existing key with new value.
+set -euo pipefail
+
+CONF="${PGDATA:-/var/local/ivorysql/ivorysql-5/data}/postgresql.conf"
+[ -f "$CONF" ] || exit 0  # PGDATA not initialized yet, nothing to do
+
+apply() {
+    local key="$1" val="$2"
+    # Drop any prior value (commented or active), append fresh
+    sed -i "\\|^[[:space:]]*${key}[[:space:]]*=|d" "$CONF"
+    echo "${key} = ${val}" >> "$CONF"
+    echo "ivy-apply-env: ${key} = ${val}" >&2
+}
+
+[ -n "${IVY_MOONCAKE_ENABLE_BGWORKER:-}" ] && \
+    apply pg_mooncake.enable_bgworker "${IVY_MOONCAKE_ENABLE_BGWORKER}"
+# Add further IVY_* -> GUC mappings here as new tunables surface.
+
+exit 0
+APPLY
+RUN set -eux; \
+    cat > /usr/local/bin/ivy-entrypoint-shim.sh <<'SHIM'
+#!/usr/bin/env bash
+set -e
+/usr/local/bin/ivy-apply-env.sh
+exec /usr/local/bin/docker-entrypoint.sh "$@"
+SHIM
+RUN set -eux; \
+    mkdir -p /docker-entrypoint-initdb.d; \
+    cat > /docker-entrypoint-initdb.d/00-ivy-apply-env.sh <<'INITDB'
+#!/usr/bin/env bash
+# Runs after the base entrypoint's initdb on first container start.
+/usr/local/bin/ivy-apply-env.sh
+INITDB
+RUN set -eux; \
+    chmod 0755 /usr/local/bin/ivy-apply-env.sh \
+               /usr/local/bin/ivy-entrypoint-shim.sh \
+               /docker-entrypoint-initdb.d/00-ivy-apply-env.sh
+
+ENTRYPOINT ["/usr/local/bin/ivy-entrypoint-shim.sh"]
+CMD ["postgres"]
+
 # Switch back to the highgo image's runtime user.
 # Adjust if your base uses a different uid/name.
 USER ivorysql
