@@ -230,3 +230,60 @@ fn create_mooncake_table(dst: &str, dst_uri: &str, src: &str, src_uri: &str) {
         .simple_query(&create_table_query)
         .unwrap_or_else(|_| panic!("error creating table: {dst}"));
 }
+
+/// Diagnostic helper for moonlink bgworker liveness.
+///
+/// Returns a JSON object combining the GUC value with filesystem-level
+/// evidence of whether the bgworker is actually running. Useful when
+/// `SHOW pg_mooncake.enable_bgworker` reports `on` but mirror operations
+/// still fail because the bgworker died or never bound the socket.
+#[cfg(feature = "bgworker")]
+#[pg_extern(sql = "
+CREATE FUNCTION mooncake.bgworker_status() RETURNS json LANGUAGE c AS 'MODULE_PATHNAME', '@FUNCTION_NAME@';
+")]
+fn bgworker_status() -> pgrx::Json {
+    use std::os::unix::net::UnixStream as StdUnixStream;
+    use std::path::Path;
+    use std::time::Duration;
+
+    let guc_enabled = crate::guc::ENABLE_BGWORKER.get();
+
+    // Same relative path as utils::get_stream() — resolved against the PG
+    // process working directory, which is $PGDATA at runtime.
+    let socket_path = "pg_mooncake/moonlink.sock";
+
+    let socket_exists = Path::new(socket_path).exists();
+
+    // Probe connect with a tight timeout so we never block PG backend on
+    // a hung socket. `connect_timeout` is on `SocketAddr` for std streams
+    // but UnixStream needs the raw socket(2)+connect(2) sequence; a plain
+    // `connect()` returns immediately for Unix sockets either way (no
+    // resolution / handshake), so we just check the result.
+    let socket_listening = if socket_exists {
+        // Wrap in a thread so a misbehaving server doesn't block us.
+        // For Unix sockets `connect()` itself doesn't block on protocol,
+        // so this is just defense-in-depth.
+        let path = socket_path.to_string();
+        let handle = std::thread::spawn(move || StdUnixStream::connect(&path).is_ok());
+        // 250ms ceiling, then give up if probe stalled.
+        let start = std::time::Instant::now();
+        loop {
+            if handle.is_finished() {
+                break handle.join().unwrap_or(false);
+            }
+            if start.elapsed() > Duration::from_millis(250) {
+                break false;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    } else {
+        false
+    };
+
+    pgrx::Json(serde_json::json!({
+        "guc_enabled": guc_enabled,
+        "socket_path": socket_path,
+        "socket_exists": socket_exists,
+        "socket_listening": socket_listening,
+    }))
+}
