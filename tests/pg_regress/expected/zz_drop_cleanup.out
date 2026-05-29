@@ -1,0 +1,43 @@
+-- pg_mooncake DROP EXTENSION cleanup watcher.
+-- Verifies the independent (non-member) sql_drop trigger is installed,
+-- is NOT an extension member, and self-removes when pg_mooncake is dropped.
+-- (Without the moonlink bgworker no replication slots exist, so the slot/pub
+-- cleanup is a no-op here; this test covers the trigger mechanism itself.)
+-- 1. Watcher event trigger is installed.
+SELECT count(*) AS watcher_triggers
+FROM pg_event_trigger
+WHERE evtname = 'mooncake_extension_drop_trigger';
+ watcher_triggers 
+------------------
+                1
+(1 row)
+
+-- 2. Watcher function is NOT an extension member (deptype 'e').
+SELECT count(*) AS watcher_is_member
+FROM pg_depend d
+JOIN pg_extension e ON e.oid = d.refobjid AND e.extname = 'pg_mooncake'
+JOIN pg_proc p ON p.oid = d.objid
+WHERE d.deptype = 'e' AND p.proname = 'mooncake_extension_drop_cleanup';
+ watcher_is_member 
+-------------------
+                 0
+(1 row)
+
+-- 3. Dropping the extension fires the watcher, which self-removes.
+DROP EXTENSION pg_mooncake CASCADE;
+SELECT count(*) AS watcher_after_drop
+FROM pg_event_trigger
+WHERE evtname = 'mooncake_extension_drop_trigger';
+ watcher_after_drop 
+--------------------
+                  0
+(1 row)
+
+SELECT count(*) AS watcher_fn_after_drop
+FROM pg_proc
+WHERE proname = 'mooncake_extension_drop_cleanup';
+ watcher_fn_after_drop 
+-----------------------
+                     0
+(1 row)
+
