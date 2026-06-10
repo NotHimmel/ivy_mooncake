@@ -1,0 +1,45 @@
+# Build artifacts
+target/
+**/target/
+*.o
+*.so
+*.rlib
+*.d
+
+# Submodule build artifacts (we rebuild inside the image)
+ivy_duckdb/build/
+ivy_duckdb/third_party/duckdb/build/
+ivy_duckdb/*.so
+ivy_moonlink/target/
+ivy_duckdb_mooncake/build/
+
+# Cargo
+.cargo/
+**/.cargo/
+
+# Editor / IDE
+.vscode/
+.idea/
+.devcontainer/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Spec/plan/memory files (untracked, dev-local)
+docs/
+
+# Other
+.git/
+.github/
+.gitignore
+.gitmodules
+
+# But keep .gitmodules — needed to know submodule layout? No, COPY explicitly
+# names submodules; .gitmodules not needed at build time.
+
+# Local test/log
+*.log
+/tmp/

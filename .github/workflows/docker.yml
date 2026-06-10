@@ -1,0 +1,107 @@
+name: docker
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/ivy_mooncake
+  IVORYSQL_BASE: registry.highgo.com/ivorysql/ivorysql:5.3-ubi8
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,suffix=-ubi8
+            type=ref,event=pr,suffix=-ubi8
+            type=semver,pattern={{version}},suffix=-ubi8
+            type=semver,pattern={{major}}.{{minor}},suffix=-ubi8
+            type=sha,prefix=sha-,suffix=-ubi8
+            type=raw,value=5.3-ubi8,enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push (amd64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          build-args: |
+            IVORYSQL_BASE=${{ env.IVORYSQL_BASE }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build image
+        run: |
+          docker build \
+            --build-arg IVORYSQL_BASE=${{ env.IVORYSQL_BASE }} \
+            -t ivy_mooncake:test .
+
+      - name: Run container
+        run: |
+          docker run -d --name test \
+            -e IVORYSQL_PASSWORD=password \
+            ivy_mooncake:test
+          for i in $(seq 1 60); do
+            docker exec test pg_isready -U ivorysql -d postgres 2>/dev/null && { echo "ready in ${i}s"; break; }
+            sleep 1
+          done
+
+      - name: Verify CREATE EXTENSION pg_mooncake CASCADE
+        run: |
+          docker exec test psql -U ivorysql -d postgres -c "
+            CREATE EXTENSION pg_mooncake CASCADE;
+            SELECT extname, extversion FROM pg_extension WHERE extname IN ('pg_duckdb','pg_mooncake');
+          "
+
+      - name: Verify mooncake.create_table E2E
+        run: |
+          docker exec test psql -U ivorysql -d postgres <<'SQL'
+            CREATE TABLE t (id int PRIMARY KEY, v text);
+            ALTER TABLE t REPLICA IDENTITY FULL;
+            INSERT INTO t VALUES (1,'a'),(2,'b');
+            CALL mooncake.create_table('t_mirror', 't');
+            SELECT count(*) FROM t_mirror;
+          SQL

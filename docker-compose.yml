@@ -1,0 +1,45 @@
+# docker-compose.yml — quick start for ivy_mooncake on UBI8
+#
+#   docker compose up -d --build
+#   docker compose exec ivy_mooncake psql -U ivorysql -d postgres
+#
+# Base: registry.highgo.com/ivorysql/ivorysql:5.3-ubi8
+
+services:
+  ivy_mooncake:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        IVORYSQL_BASE: registry.highgo.com/ivorysql/ivorysql:5.3-ubi8
+    image: ivorysql/ivy_mooncake:5.3-ubi8
+    container_name: ivy_mooncake
+    restart: unless-stopped
+    environment:
+      IVORYSQL_PASSWORD: password
+      # Force UTF8 (pg_duckdb refuses SQL_ASCII).
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      # Set Oracle compatible_mode default at initdb (adjust per highgo base conventions).
+      IVORY_COMPATIBLE_MODE: oracle
+    ports:
+      - "5432:5432"   # PG protocol
+      - "1521:1521"   # IvorySQL Oracle listen
+    volumes:
+      # PG data dir — contains the heap + PGDATA/pg_mooncake/{moonlink.sock, _wal/...}
+      - ivy_mooncake_data:/var/lib/ivorysql/data
+      # Iceberg warehouse — mooncake's default mirror table storage. Path is
+      # hardcoded in ivy_moonlink as /tmp/moonlink_iceberg unless overridden
+      # per-table via the table_config JSON 4th arg of mooncake.create_table.
+      # Mounting it persists mirror data across container rebuilds.
+      - ivy_mooncake_warehouse:/tmp/moonlink_iceberg
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ivorysql -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ivy_mooncake_data:
+  ivy_mooncake_warehouse:
