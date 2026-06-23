@@ -32,6 +32,7 @@ RUN set -eux; \
         lz4-devel libxml2-devel libpq-devel \
         libcurl-devel \
         clang clang-devel llvm-libs \
+        ccache \
         ; \
     # ninja-build optional (in CRB/EPEL). Don't fail if absent.
     $PKG install -y --enablerepo='*' ninja-build 2>/dev/null || true; \
@@ -41,8 +42,16 @@ RUN set -eux; \
 # Rust 1.91.1 + cargo-pgrx 0.16.1 (versions locked to project requirements).
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --default-toolchain 1.91.1 --profile minimal
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN cargo install --locked cargo-pgrx@0.16.1
+# Prepend ccache compiler wrappers (/usr/lib64/ccache/{cc,gcc,c++,g++}) so the
+# DuckDB C++ build and pgxs C compiles route through ccache automatically.
+# CCACHE_DIR points at the BuildKit cache mount used below, so object files
+# survive across rebuilds even when a layer is invalidated.
+ENV PATH="/usr/lib64/ccache:/root/.cargo/bin:${PATH}" \
+    CCACHE_DIR="/ccache" \
+    CCACHE_MAXSIZE="10G"
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    cargo install --locked cargo-pgrx@0.16.1
 
 # Locate IvorySQL pg_config. Override at build time if auto-detect fails:
 #   --build-arg IVORYSQL_PG_CONFIG=/path/to/pg_config
@@ -102,24 +111,32 @@ RUN set -eux; \
 
 # Build + install ivy_duckdb to IvorySQL libdir/sharedir.
 # GEN=ninja if available; else fall back to default make generator.
-RUN set -eux; \
+RUN --mount=type=cache,target=/ccache \
+    set -eux; \
     PG_CONFIG="$(cat /etc/pgconfig)"; \
     GEN="$(command -v ninja >/dev/null 2>&1 && echo ninja || echo '')"; \
-    PG_CONFIG="${PG_CONFIG}" GEN="${GEN}" make ivy_duckdb
+    PG_CONFIG="${PG_CONFIG}" GEN="${GEN}" make ivy_duckdb; \
+    ccache -s 2>/dev/null || true
 
-# Build + package ivy_mooncake.
+# Build + package ivy_mooncake, then collect ALL runtime artifacts.
 # Bypass `make package` because its bare `cargo pgrx package` auto-picks
 # /usr/bin/pg_config (system PG 13 on UBI8). Pass IvorySQL pg_config
 # explicitly via --pg-config so packaging uses pg18 features.
-RUN set -eux; \
+#
+# Packaging and artifact-collection MUST be one RUN: target/ is a BuildKit
+# cache mount (not persisted into the image layer), so a later RUN would not
+# see the package output. We copy artifacts OUT of the cache mount into the
+# real filesystem (/build_output) within this same RUN.
+# - ivy_duckdb installed files: from IvorySQL libdir/sharedir (real fs)
+# - ivy_mooncake package: from target/release/pg_mooncake-pg18/ (cache mount)
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    --mount=type=cache,target=/ivy_mooncake/target,sharing=locked \
+    --mount=type=cache,target=/ccache \
+    set -eux; \
     PG_CONFIG="$(cat /etc/pgconfig)"; \
-    cargo pgrx package --pg-config "${PG_CONFIG}"
-
-# Collect ALL runtime artifacts to a known staging directory.
-# - ivy_duckdb installed files: from IvorySQL libdir/sharedir
-# - ivy_mooncake package: from target/release/pg_mooncake-pg18/
-RUN set -eux; \
-    PG_CONFIG="$(cat /etc/pgconfig)"; \
+    cargo pgrx package --pg-config "${PG_CONFIG}"; \
+    ccache -s 2>/dev/null || true; \
     LIBDIR="$($PG_CONFIG --pkglibdir)"; \
     SHAREDIR="$($PG_CONFIG --sharedir)"; \
     mkdir -p /build_output/lib /build_output/share/extension; \
