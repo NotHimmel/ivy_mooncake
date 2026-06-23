@@ -13,7 +13,7 @@
 #     -v ivy_mooncake_warehouse:/tmp/moonlink_iceberg \
 #     ivorysql/ivy_mooncake:5.3-ubi8
 
-ARG IVORYSQL_BASE=registry.highgo.com/ivorysql/ivorysql:5.3-ubi8
+ARG IVORYSQL_BASE=registry.highgo.com/ivorysql/ivorysql:5.4-ubi8
 
 # ============================================================================
 # Stage 1: build
