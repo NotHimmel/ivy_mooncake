@@ -16,6 +16,20 @@
 
 This fork tracks IvorySQL-maintained branches of `pg_duckdb`, `moonlink`, and `duckdb_mooncake` (`ivy_duckdb`, `ivy_moonlink`, `ivy_duckdb_mooncake`). The repository name is `ivy_mooncake`, but the extension it installs is unchanged — `pg_mooncake` — so SQL-side compatibility with upstream is preserved.
 
+## Run with Docker (preview)
+
+A preview image is available. It bundles IvorySQL with `pg_duckdb` and `pg_mooncake` preloaded:
+```bash
+docker run --name ivy_mooncake \
+  -e IVORYSQL_PASSWORD=password \
+  -p 5432:5432 -p 1521:1521 \
+  -v ivy_mooncake_data:/var/lib/ivorysql/data \
+  -v ivy_mooncake_warehouse:/tmp/moonlink_iceberg \
+  registry.highgo.com/mooncake/ivy_mooncake:0.1
+```
+
+> **Note:** `0.1` is a preview tag and may change. See [Quick Start](#quick-start) for first queries.
+
 ## Installation
 
 To build ivy_mooncake, first install [Rust][rust-install], [pgrx][pgrx-install], and [the build tools for DuckDB][duckdb-install].
