@@ -42,11 +42,12 @@ RUN set -eux; \
 # Rust 1.91.1 + cargo-pgrx 0.16.1 (versions locked to project requirements).
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --default-toolchain 1.91.1 --profile minimal
-# Prepend ccache compiler wrappers (/usr/lib64/ccache/{cc,gcc,c++,g++}) so the
-# DuckDB C++ build and pgxs C compiles route through ccache automatically.
-# CCACHE_DIR points at the BuildKit cache mount used below, so object files
-# survive across rebuilds even when a layer is invalidated.
-ENV PATH="/usr/lib64/ccache:/root/.cargo/bin:${PATH}" \
+# ccache is enabled ONLY for the DuckDB C++ build (see `make ivy_duckdb`
+# below), where the bulk of compile time lives. It is deliberately NOT put on
+# the global PATH: routing cargo's cc-rs builds through ccache breaks
+# aws-lc-sys, whose prefixed `.S` assembly files fail under the ccache wrapper
+# (silent exit 1). Rust dependencies are cached via the target/ mount instead.
+ENV PATH="/root/.cargo/bin:${PATH}" \
     CCACHE_DIR="/ccache" \
     CCACHE_MAXSIZE="10G"
 RUN --mount=type=cache,target=/root/.cargo/registry \
@@ -113,6 +114,7 @@ RUN set -eux; \
 # GEN=ninja if available; else fall back to default make generator.
 RUN --mount=type=cache,target=/ccache \
     set -eux; \
+    export PATH="/usr/lib64/ccache:${PATH}"; \
     PG_CONFIG="$(cat /etc/pgconfig)"; \
     GEN="$(command -v ninja >/dev/null 2>&1 && echo ninja || echo '')"; \
     PG_CONFIG="${PG_CONFIG}" GEN="${GEN}" make ivy_duckdb; \
@@ -132,11 +134,9 @@ RUN --mount=type=cache,target=/ccache \
 RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/ivy_mooncake/target,sharing=locked \
-    --mount=type=cache,target=/ccache \
     set -eux; \
     PG_CONFIG="$(cat /etc/pgconfig)"; \
     cargo pgrx package --pg-config "${PG_CONFIG}"; \
-    ccache -s 2>/dev/null || true; \
     LIBDIR="$($PG_CONFIG --pkglibdir)"; \
     SHAREDIR="$($PG_CONFIG --sharedir)"; \
     mkdir -p /build_output/lib /build_output/share/extension; \
