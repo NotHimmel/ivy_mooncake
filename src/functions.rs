@@ -195,11 +195,28 @@ fn uri_encode(input: &str) -> String {
     result
 }
 
+/// IvorySQL: the loopback URI targets the PG-mode port, so the new session
+/// defaults to `ivorysql.compatible_mode = pg` even on an Oracle-mode
+/// cluster. Oracle types emitted by format_type (number, varchar2, clob)
+/// then fail to resolve in the CREATE TABLE. Propagate the calling
+/// session's mode so DDL built from Oracle-typed tables works.
+fn propagate_compatible_mode(client: &mut Client) {
+    let mode = Spi::get_one::<String>("SELECT current_setting('ivorysql.compatible_mode', true)");
+    if let Ok(Some(mode)) = mode {
+        if mode == "oracle" {
+            client
+                .simple_query("SET ivorysql.compatible_mode TO oracle")
+                .expect("error setting ivorysql.compatible_mode");
+        }
+    }
+}
+
 fn create_mooncake_table(dst: &str, dst_uri: &str, src: &str, src_uri: &str) {
     let tls_connector = TlsConnector::new().expect("error creating tls connector");
     let make_tls_connector = MakeTlsConnector::new(tls_connector);
     let mut client = Client::connect(src_uri, make_tls_connector.clone())
         .unwrap_or_else(|_| panic!("error connecting to server: {src_uri}"));
+    propagate_compatible_mode(&mut client);
 
     let get_columns_query = format!(
         "SELECT string_agg(
@@ -223,6 +240,7 @@ fn create_mooncake_table(dst: &str, dst_uri: &str, src: &str, src_uri: &str) {
     if dst_uri != src_uri {
         client = Client::connect(dst_uri, make_tls_connector)
             .unwrap_or_else(|_| panic!("error connecting to server: {dst_uri}"));
+        propagate_compatible_mode(&mut client);
     }
 
     let create_table_query = format!("CREATE TABLE {dst} ({columns}) USING mooncake");
