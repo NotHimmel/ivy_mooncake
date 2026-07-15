@@ -150,15 +150,19 @@ Provision separately on the air-gapped host (NOT in this tarball):
 Build on the air-gapped host:
   tar xzf ivy_mooncake-offline-*.tar.gz && cd ivy_mooncake
   make OFFLINE=1 ivy_duckdb PG_VERSION=pg14   # C++/DuckDB side (layer 3)
-  make OFFLINE=1 install    PG_VERSION=pg14   # Rust extension (layer 2)
+  make OFFLINE=1 install    PG_VERSION=pg14   # Rust extension (layer 2) +
+                                              # auto-installs the mooncake
+                                              # DuckDB extension into sharedir
 
-Runtime setup on the air-gapped host (after initdb, before first mooncake use):
-  # postgresql.conf: shared_preload_libraries='pg_duckdb,pg_mooncake',
-  #                  wal_level=logical, duckdb.allow_community_extensions=true
-  # Pre-place the mooncake DuckDB extension (INSTALL then no-ops, no network):
-  mkdir -p \$PGDATA/pg_duckdb/extensions/$DUCKDB_VER/$DUCKDB_PLATFORM
-  cp offline-deps/duckdb-extensions/$DUCKDB_VER/$DUCKDB_PLATFORM/mooncake.duckdb_extension \\
-     \$PGDATA/pg_duckdb/extensions/$DUCKDB_VER/$DUCKDB_PLATFORM/
+Runtime setup on the air-gapped host -- postgresql.conf, then restart:
+  shared_preload_libraries = 'pg_duckdb,pg_mooncake'
+  wal_level = logical
+  duckdb.allow_community_extensions = true
+  duckdb.extension_directory = '<sharedir>/pg_duckdb/extensions'
+      # exact path is printed by `make OFFLINE=1 install`; tying the
+      # extension cache to the installation instead of a data directory
+      # means re-initdb needs no re-copying. The pre-placed file turns the
+      # runtime INSTALL into a zero-network cache hit.
 EOF
 
 if [ "${BUNDLE_SKIP_ARCHIVE:-}" = 1 ]; then

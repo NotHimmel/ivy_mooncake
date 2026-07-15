@@ -24,7 +24,7 @@ else
 CARGO := cargo
 endif
 
-.PHONY: help clean ivy_duckdb_mooncake format install package ivy_duckdb run test offline-bundle
+.PHONY: help clean ivy_duckdb_mooncake format install package ivy_duckdb run test offline-bundle install-duckdb-extensions
 
 help:
 	@echo "Usage: make <COMMAND> [OPTIONS]"
@@ -55,6 +55,25 @@ format:
 
 install:
 	@$(CARGO) pgrx install --release -c $(PG_CONFIG) $(PG_FEATURES)
+ifdef OFFLINE
+	@$(MAKE) install-duckdb-extensions
+endif
+
+# Air-gapped runtime files: place the bundled mooncake.duckdb_extension under
+# the Postgres sharedir so it is tied to the installation, not to any one data
+# directory (survives re-initdb, no PGDATA needed at install time). Requires
+# one line in postgresql.conf pointing DuckDB's extension cache there:
+#   duckdb.extension_directory = '<sharedir>/pg_duckdb/extensions'
+# DuckDB appends <version>/<platform>/ itself, which is exactly the layout the
+# offline bundle ships. With the file pre-placed, the runtime
+# `INSTALL mooncake FROM community` is a zero-network cache hit.
+install-duckdb-extensions:
+	@test -d offline-deps/duckdb-extensions || { echo "offline-deps/duckdb-extensions missing. Run 'make offline-bundle' on a connected machine (or unpack the offline bundle) first." >&2; exit 1; }
+	@dest="$$($(PG_CONFIG) --sharedir)/pg_duckdb/extensions"; \
+	mkdir -p "$$dest"; \
+	cp -r offline-deps/duckdb-extensions/. "$$dest/"; \
+	echo "duckdb extensions installed to $$dest"; \
+	echo "add to postgresql.conf:  duckdb.extension_directory = '$$dest'"
 
 package:
 	@$(CARGO) pgrx package -c $(PG_CONFIG) $(PG_FEATURES)
