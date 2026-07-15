@@ -1,0 +1,37 @@
+# Offline build config for ivy_mooncake.
+#
+# NOT loaded automatically. Activated only by `make OFFLINE=1 ...`, which passes
+# it via `cargo --config .cargo/config.offline.toml` (see Makefile). Online
+# builds keep using the normal .cargo/config.toml and fetch from crates.io.
+#
+# It redirects every crate source -- crates.io plus the two pinned git deps
+# (rust-postgres, iceberg-rust) -- to the local vendor/ tree produced by:
+#
+#   cargo vendor --locked --manifest-path Cargo.toml \
+#       --sync ivy_moonlink/Cargo.toml vendor/
+#
+# Regenerate vendor/ (and re-copy the block below from cargo's output) whenever
+# Cargo.lock changes. vendor/ is git-ignored and shipped in the offline bundle,
+# not committed.
+#
+# Keep the macOS link flags from .cargo/config.toml in sync here: this file is
+# used INSTEAD of that one during offline builds, not merged with it.
+
+[target.'cfg(target_os="macos")']
+rustflags = ["-Clink-arg=-Wl,-undefined,dynamic_lookup"]
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455"]
+git = "https://github.com/Mooncake-Labs/rust-postgres.git"
+rev = "14c8e599f5551a8caa96ff5023685a6f537a1455"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/apache/iceberg-rust?rev=4a6ea15a7dd73e7c68b0a24441820b13bdd22a92"]
+git = "https://github.com/apache/iceberg-rust"
+rev = "4a6ea15a7dd73e7c68b0a24441820b13bdd22a92"
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor/"
