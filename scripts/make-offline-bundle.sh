@@ -94,22 +94,34 @@ find "$HTTPFS_DEST" -name .git -prune -exec rm -rf {} +
 # cache-hit no-op.
 DUCKDB_VER="$(sed -n 's/^DUCKDB_VERSION *= *//p' ivy_duckdb/Makefile | head -1)"
 [ -n "$DUCKDB_VER" ] || die "could not parse DUCKDB_VERSION from ivy_duckdb/Makefile"
-case "$(uname -m)" in
-	x86_64)  DUCKDB_PLATFORM=linux_amd64 ;;
-	aarch64) DUCKDB_PLATFORM=linux_arm64 ;;
-	*) die "unsupported platform $(uname -m) for duckdb extension download" ;;
-esac
-EXT_DEST="offline-deps/duckdb-extensions/$DUCKDB_VER/$DUCKDB_PLATFORM"
-EXT_URL="http://community-extensions.duckdb.org/$DUCKDB_VER/$DUCKDB_PLATFORM/mooncake.duckdb_extension.gz"
-log "fetching mooncake.duckdb_extension ($DUCKDB_VER/$DUCKDB_PLATFORM) from community repo..."
-mkdir -p "$EXT_DEST"
-if command -v curl >/dev/null; then
-	curl -fsSL "$EXT_URL" -o "$EXT_DEST/mooncake.duckdb_extension.gz"
-else
-	wget -q "$EXT_URL" -O "$EXT_DEST/mooncake.duckdb_extension.gz"
+# Which target platforms to bundle the (binary) extension for. Everything else
+# in the bundle is source and builds natively on any architecture; this is the
+# only per-platform artifact. Default covers the packaging machine; override
+# for cross-platform bundles, e.g.:
+#   BUNDLE_PLATFORMS="linux_amd64 linux_arm64" make offline-bundle
+# install-duckdb-extensions copies the whole tree, and DuckDB picks its own
+# <platform>/ subdirectory at runtime, so shipping several is harmless.
+if [ -z "${BUNDLE_PLATFORMS:-}" ]; then
+	case "$(uname -m)" in
+		x86_64)  BUNDLE_PLATFORMS=linux_amd64 ;;
+		aarch64) BUNDLE_PLATFORMS=linux_arm64 ;;
+		*) die "unsupported platform $(uname -m); set BUNDLE_PLATFORMS explicitly" ;;
+	esac
 fi
-gunzip -f "$EXT_DEST/mooncake.duckdb_extension.gz"
-[ -s "$EXT_DEST/mooncake.duckdb_extension" ] || die "mooncake.duckdb_extension download/unpack failed"
+for platform in $BUNDLE_PLATFORMS; do
+	EXT_DEST="offline-deps/duckdb-extensions/$DUCKDB_VER/$platform"
+	EXT_URL="http://community-extensions.duckdb.org/$DUCKDB_VER/$platform/mooncake.duckdb_extension.gz"
+	log "fetching mooncake.duckdb_extension ($DUCKDB_VER/$platform) from community repo..."
+	mkdir -p "$EXT_DEST"
+	if command -v curl >/dev/null; then
+		curl -fsSL "$EXT_URL" -o "$EXT_DEST/mooncake.duckdb_extension.gz"
+	else
+		wget -q "$EXT_URL" -O "$EXT_DEST/mooncake.duckdb_extension.gz"
+	fi
+	gunzip -f "$EXT_DEST/mooncake.duckdb_extension.gz"
+	[ -s "$EXT_DEST/mooncake.duckdb_extension" ] || die "mooncake.duckdb_extension download/unpack failed for $platform"
+done
+DUCKDB_PLATFORM="$BUNDLE_PLATFORMS"
 
 # --- overlay: .git-marker stubs so the air-gapped build needs no git ---------
 # The ivy_duckdb Makefile depends on .git/modules/third_party/duckdb/HEAD whose
@@ -138,7 +150,7 @@ Bundled build-time inputs (no network needed):
   - full source tree + recursive submodules (.git stripped; marker stubs added)
   - vendor/           : Rust crates for both workspaces (from Cargo.lock)
   - offline-deps/httpfs-src : DuckDB httpfs extension source (pinned commit)
-  - offline-deps/duckdb-extensions/$DUCKDB_VER/$DUCKDB_PLATFORM/mooncake.duckdb_extension
+  - offline-deps/duckdb-extensions/$DUCKDB_VER/{$DUCKDB_PLATFORM}/mooncake.duckdb_extension
                       : signed community build; pre-place it so the runtime
                         INSTALL becomes a zero-network cache hit
 
