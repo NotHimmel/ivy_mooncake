@@ -3,7 +3,7 @@
 	url = https://github.com/IvorySQL/ivy_moonlink.git
 [submodule "ivy_duckdb"]
 	path = ivy_duckdb
-	url = https://github.com/IvorySQL/ivy_duckdb.git
+	url = https://github.com/NotHimmel/ivy_duckdb.git
 [submodule "ivy_duckdb_mooncake"]
 	path = ivy_duckdb_mooncake
 	url = https://github.com/IvorySQL/ivy_duckdb_mooncake.git
