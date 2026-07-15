@@ -3468,7 +3468,7 @@ dependencies = [
  "native-tls",
  "nix",
  "parquet",
- "postgres-native-tls 0.5.0 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
+ "postgres-native-tls",
  "rand 0.9.4",
  "serde",
  "serde_json",
@@ -3503,14 +3503,14 @@ dependencies = [
  "parquet",
  "pg_escape",
  "pin-project-lite",
- "postgres-native-tls 0.5.0 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
+ "postgres-native-tls",
  "postgres-replication",
  "prost",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
- "tokio-postgres 0.7.11 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
+ "tokio-postgres",
  "tracing",
  "uuid",
 ]
@@ -3534,7 +3534,7 @@ dependencies = [
  "moonlink_error",
  "more-asserts",
  "native-tls",
- "postgres-native-tls 0.5.0 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
+ "postgres-native-tls",
  "serde",
  "serde_json",
  "sqlx",
@@ -4219,7 +4219,7 @@ dependencies = [
  "native-tls",
  "pgrx",
  "postgres",
- "postgres-native-tls 0.5.0 (git+https://github.com/Mooncake-Labs/rust-postgres.git)",
+ "postgres-native-tls",
  "regex",
  "serde_json",
  "tokio",
@@ -4461,14 +4461,14 @@ checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
 [[package]]
 name = "postgres"
 version = "0.19.8"
-source = "git+https://github.com/Mooncake-Labs/rust-postgres.git#14c8e599f5551a8caa96ff5023685a6f537a1455"
+source = "git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455#14c8e599f5551a8caa96ff5023685a6f537a1455"
 dependencies = [
  "bytes",
  "fallible-iterator",
  "futures-util",
  "log",
  "tokio",
- "tokio-postgres 0.7.11 (git+https://github.com/Mooncake-Labs/rust-postgres.git)",
+ "tokio-postgres",
 ]
 
 [[package]]
@@ -4479,41 +4479,13 @@ dependencies = [
  "native-tls",
  "tokio",
  "tokio-native-tls",
- "tokio-postgres 0.7.11 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
-]
-
-[[package]]
-name = "postgres-native-tls"
-version = "0.5.0"
-source = "git+https://github.com/Mooncake-Labs/rust-postgres.git#14c8e599f5551a8caa96ff5023685a6f537a1455"
-dependencies = [
- "native-tls",
- "tokio",
- "tokio-native-tls",
- "tokio-postgres 0.7.11 (git+https://github.com/Mooncake-Labs/rust-postgres.git)",
+ "tokio-postgres",
 ]
 
 [[package]]
 name = "postgres-protocol"
 version = "0.6.7"
 source = "git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455#14c8e599f5551a8caa96ff5023685a6f537a1455"
-dependencies = [
- "base64",
- "byteorder",
- "bytes",
- "fallible-iterator",
- "hmac 0.12.1",
- "md-5",
- "memchr",
- "rand 0.8.6",
- "sha2 0.10.9",
- "stringprep",
-]
-
-[[package]]
-name = "postgres-protocol"
-version = "0.6.7"
-source = "git+https://github.com/Mooncake-Labs/rust-postgres.git#14c8e599f5551a8caa96ff5023685a6f537a1455"
 dependencies = [
  "base64",
  "byteorder",
@@ -4537,9 +4509,9 @@ dependencies = [
  "futures-util",
  "memchr",
  "pin-project-lite",
- "postgres-protocol 0.6.7 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
- "postgres-types 0.2.7 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
- "tokio-postgres 0.7.11 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
+ "postgres-protocol",
+ "postgres-types",
+ "tokio-postgres",
 ]
 
 [[package]]
@@ -4549,19 +4521,9 @@ source = "git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f55
 dependencies = [
  "bytes",
  "fallible-iterator",
- "postgres-protocol 0.6.7 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
+ "postgres-protocol",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "postgres-types"
-version = "0.2.7"
-source = "git+https://github.com/Mooncake-Labs/rust-postgres.git#14c8e599f5551a8caa96ff5023685a6f537a1455"
-dependencies = [
- "bytes",
- "fallible-iterator",
- "postgres-protocol 0.6.7 (git+https://github.com/Mooncake-Labs/rust-postgres.git)",
 ]
 
 [[package]]
@@ -6283,33 +6245,8 @@ dependencies = [
  "percent-encoding",
  "phf 0.11.3",
  "pin-project-lite",
- "postgres-protocol 0.6.7 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
- "postgres-types 0.2.7 (git+https://github.com/Mooncake-Labs/rust-postgres.git?rev=14c8e599f5551a8caa96ff5023685a6f537a1455)",
- "rand 0.8.6",
- "socket2 0.5.10",
- "tokio",
- "tokio-util",
- "whoami",
-]
-
-[[package]]
-name = "tokio-postgres"
-version = "0.7.11"
-source = "git+https://github.com/Mooncake-Labs/rust-postgres.git#14c8e599f5551a8caa96ff5023685a6f537a1455"
-dependencies = [
- "async-trait",
- "byteorder",
- "bytes",
- "fallible-iterator",
- "futures-channel",
- "futures-util",
- "log",
- "parking_lot",
- "percent-encoding",
- "phf 0.11.3",
- "pin-project-lite",
- "postgres-protocol 0.6.7 (git+https://github.com/Mooncake-Labs/rust-postgres.git)",
- "postgres-types 0.2.7 (git+https://github.com/Mooncake-Labs/rust-postgres.git)",
+ "postgres-protocol",
+ "postgres-types",
  "rand 0.8.6",
  "socket2 0.5.10",
  "tokio",

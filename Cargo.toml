@@ -25,8 +25,13 @@ moonlink_rpc.path = "ivy_moonlink/src/moonlink_rpc"
 moonlink_service = { path = "ivy_moonlink/src/moonlink_service", optional = true }
 native-tls = "0.2"
 pgrx = "0.16.1"
-postgres.git = "https://github.com/Mooncake-Labs/rust-postgres.git"
-postgres-native-tls.git = "https://github.com/Mooncake-Labs/rust-postgres.git"
+# Pin to the same rev as ivy_moonlink/Cargo.toml so both workspaces resolve to
+# one git source. Without the rev the source string differs ("...git" vs
+# "...git?rev=..."), which makes `cargo vendor --sync` see two copies of the
+# same package and refuse. Pinning also stops this dep from floating to branch
+# head.
+postgres = { git = "https://github.com/Mooncake-Labs/rust-postgres.git", rev = "14c8e599f5551a8caa96ff5023685a6f537a1455" }
+postgres-native-tls = { git = "https://github.com/Mooncake-Labs/rust-postgres.git", rev = "14c8e599f5551a8caa96ff5023685a6f537a1455" }
 regex = "1"
 serde_json = "1"
 tokio = "1.48"
