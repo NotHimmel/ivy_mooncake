@@ -22,10 +22,25 @@ pub(crate) fn block_on<F: Future>(future: F) -> F::Output {
 
 pub(crate) fn get_stream() -> MutexGuard<'static, UnixStream> {
     static STREAM: LazyLock<Mutex<UnixStream>> = LazyLock::new(|| {
-        Mutex::new(
-            block_on(UnixStream::connect("pg_mooncake/moonlink.sock"))
-                .expect("Failed to connect to moonlink"),
-        )
+        // The moonlink bgworker binds its socket asynchronously after postmaster
+        // start, so the first client call in a fresh cluster can race it and see
+        // ECONNREFUSED/ENOENT. Retry with backoff instead of failing the backend:
+        // a panic here would also poison this LazyLock, permanently breaking every
+        // later mooncake call in the session.
+        let mut delay = std::time::Duration::from_millis(50);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let stream = loop {
+            match block_on(UnixStream::connect("pg_mooncake/moonlink.sock")) {
+                Ok(stream) => break stream,
+                Err(err) if std::time::Instant::now() < deadline => {
+                    pgrx::log!("moonlink not ready ({err}), retrying in {delay:?}");
+                    std::thread::sleep(delay);
+                    delay = (delay * 2).min(std::time::Duration::from_secs(1));
+                }
+                Err(err) => panic!("Failed to connect to moonlink: {err:?}"),
+            }
+        };
+        Mutex::new(stream)
     });
     STREAM.lock().unwrap()
 }
