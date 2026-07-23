@@ -12,16 +12,18 @@ SELECT duckdb.install_extension('mooncake', 'community');
 CREATE FUNCTION public.mooncake_extension_drop_cleanup() RETURNS event_trigger
 LANGUAGE plpgsql AS $mooncake_drop_cleanup$
 DECLARE
-    is_mooncake_drop boolean := false;
     slot record;
 BEGIN
     -- Act only when pg_mooncake itself is among the dropped objects.
-    SELECT true INTO is_mooncake_drop
-    FROM pg_event_trigger_dropped_objects()
-    WHERE object_type = 'extension' AND object_name = 'pg_mooncake'
-    LIMIT 1;
-
-    IF NOT is_mooncake_drop THEN
+    -- Use EXISTS, not SELECT INTO: SELECT INTO with zero rows overwrites the
+    -- variable with NULL (even when initialized false), and IF NOT NULL is
+    -- not taken — so the cleanup body would run on EVERY sql_drop, spuriously
+    -- dropping the slot/publication and self-removing on any DROP TABLE.
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_event_trigger_dropped_objects()
+        WHERE object_type = 'extension' AND object_name = 'pg_mooncake'
+    ) THEN
         RETURN;
     END IF;
 
