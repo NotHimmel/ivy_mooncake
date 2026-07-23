@@ -211,7 +211,22 @@ fn uri_encode(input: &str) -> String {
 /// then fail to resolve in the CREATE TABLE. Propagate the calling
 /// session's mode so DDL built from Oracle-typed tables works.
 fn propagate_compatible_mode(client: &mut Client) {
-    let mode = Spi::get_one::<String>("SELECT current_setting('ivorysql.compatible_mode', true)");
+    // Read the GUC via the read-only SPI path. `Spi::get_one` routes through
+    // `SpiClient::update`, whose `mark_mutable` assigns the calling backend a
+    // real transaction id. That xid deadlocks create_table: the moonlink RPC
+    // issued later blocks on CREATE_REPLICATION_SLOT ... USE_SNAPSHOT, whose
+    // snapshot builder waits for every in-progress write xact — including
+    // ours — while we sit in block_on waiting for that same RPC to return.
+    let mode = Spi::connect(|client| {
+        client
+            .select(
+                "SELECT current_setting('ivorysql.compatible_mode', true)",
+                Some(1),
+                &[],
+            )?
+            .first()
+            .get_one::<String>()
+    });
     if let Ok(Some(mode)) = mode {
         if mode == "oracle" {
             client
